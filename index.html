@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>중계기 리모컨</title>
+<style>
+  :root { --bg:#f3f4f6; --card:#fff; --text:#111827; --muted:#6b7280; --line:#e5e7eb;
+          --accent:#2563eb; --accent-soft:#dbeafe; --danger:#dc2626; --ok:#16a34a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0b0f17; --card:#151b26; --text:#e5e7eb; --muted:#9ca3af; --line:#263041;
+            --accent:#3b82f6; --accent-soft:#1e293b; --danger:#ef4444; --ok:#22c55e; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+         background:var(--bg); color:var(--text); font-size:15px; }
+  header { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line);
+           padding:12px 16px; display:flex; align-items:center; gap:10px; }
+  header h1 { font-size:17px; margin:0; flex:1; }
+  .dot { width:10px; height:10px; border-radius:50%; background:var(--muted); }
+  .dot.on { background:var(--ok); } .dot.err { background:var(--danger); }
+  main { padding:12px 12px 80px; max-width:640px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .label { font-size:12px; color:var(--muted); margin-bottom:8px; font-weight:600; letter-spacing:.02em; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1px solid var(--line); background:transparent; color:var(--text); border-radius:999px;
+          padding:8px 14px; font-size:14px; cursor:pointer; }
+  .chip.sel { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .chip.danger { border-color:var(--danger); color:var(--danger); }
+  .chip.danger.sel { background:var(--danger); color:#fff; }
+  .help { color:var(--muted); font-size:13px; margin:4px 0 10px; }
+  input { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:10px; font-size:16px;
+          background:var(--bg); color:var(--text); margin-bottom:10px; }
+  .field-label { font-size:13px; margin-bottom:4px; }
+  .btn { width:100%; padding:13px; border:0; border-radius:12px; background:var(--accent); color:#fff;
+         font-size:16px; font-weight:600; cursor:pointer; }
+  .btn.danger { background:var(--danger); }
+  .btn.ghost { background:var(--accent-soft); color:var(--accent); }
+  .btn:disabled { opacity:.5; }
+  .preview { font-family:ui-monospace, Consolas, monospace; font-size:12px; color:var(--muted);
+             margin:0 0 10px; word-break:break-all; }
+  .log-item { border-top:1px solid var(--line); padding:10px 0; }
+  .log-item:first-child { border-top:0; padding-top:0; }
+  .log-head { display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--muted); }
+  .log-cmd { font-weight:600; font-size:14px; margin:2px 0 6px; }
+  .event .log-cmd { color:var(--accent); }
+  pre { white-space:pre-wrap; word-break:break-word; margin:0; font-family:inherit; font-size:14px; line-height:1.45; }
+  .jobs { margin-top:8px; display:flex; flex-direction:column; gap:6px; }
+  .job { display:flex; gap:8px; align-items:center; font-size:13px; }
+  .job span { flex:1; }
+  .job button { flex:none; padding:7px 12px; border-radius:9px; border:1px solid var(--danger);
+                background:transparent; color:var(--danger); font-weight:600; cursor:pointer; }
+  .state { font-size:12px; }
+  .state.wait { color:var(--muted); } .state.ok { color:var(--ok); } .state.err { color:var(--danger); }
+  details summary { cursor:pointer; color:var(--muted); font-size:13px; }
+  .mapfield { margin-bottom:12px; }
+  .timefield { margin-bottom:12px; }
+  .presets { margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid var(--line); }
+  .presets .plist { margin-bottom:8px; }
+  .chip.preset { display:inline-flex; align-items:center; gap:2px; padding:0; overflow:hidden; border-color:var(--accent); }
+  .chip.preset .pname { padding:8px 4px 8px 14px; color:var(--accent); font-weight:600; cursor:pointer; }
+  .chip.preset .pdel { padding:8px 12px 8px 8px; color:var(--muted); cursor:pointer; }
+  .datefield { margin-bottom:12px; }
+  .datefield .chips { margin-bottom:6px; }
+  .dchip.sel { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .timefield .row { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+  .timefield select { flex:1; padding:10px; border:1px solid var(--line); border-radius:10px; font-size:16px;
+                      background:var(--bg); color:var(--text); }
+  .timefield .toggle { display:flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); flex:none; }
+  .timefield .toggle input { width:auto; margin:0; }
+  .mapfield .row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .mapfield .row input { margin:0; }
+  .mapfield .km { flex:1; min-width:0; padding:0; margin:0; border:0; background:transparent; accent-color:var(--accent); height:28px; }
+  .mapfield .kmval { flex:none; width:58px; text-align:right; font-size:14px; }
+  .side-from .km { accent-color:#0ea5e9; }
+  .mapfield .toggle { display:flex; gap:6px; align-items:center; font-size:13px; color:var(--muted); margin-bottom:8px; }
+  .mapfield .toggle input { width:auto; margin:0; }
+  .mapfield .results { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+  .chip.small { padding:5px 10px; font-size:12px; }
+  .mapwrap { position:relative; height:260px; border-radius:12px; overflow:hidden; border:1px solid var(--line); margin-bottom:8px; }
+  .mapwrap .map { width:100%; height:100%; }
+  .mapwrap.tall { height:340px; }
+  .seg { display:flex; gap:6px; margin-bottom:8px; }
+  .seg button { flex:1; padding:10px; border-radius:10px; border:1px solid var(--line); background:transparent;
+                color:var(--text); font-size:14px; font-weight:600; cursor:pointer; }
+  .seg button[data-t=from].sel { background:#0ea5e9; border-color:#0ea5e9; color:#fff; }
+  .seg button[data-t=to].sel { background:#2563eb; border-color:#2563eb; color:#fff; }
+  .dotlabel { display:inline-block; padding:3px 8px; border-radius:6px; color:#fff; font-size:12px; font-weight:700; margin-right:6px; flex:none; }
+  .mapfield .toggle.inline, .row .toggle { margin:0 0 0 auto; }
+  .job .mapbtn { border-color:var(--accent); color:var(--accent); }
+  .job .waitlabel { flex:none; padding:7px 10px; border-radius:9px; border:1px dashed var(--muted); color:var(--muted); font-size:13px; }
+  #mapView { position:fixed; inset:0; z-index:20; background:var(--bg); display:flex; flex-direction:column; padding:12px; gap:10px; }
+  #mapView.hidden { display:none; }
+  .mv-head { display:flex; align-items:center; justify-content:space-between; }
+  #mvMap { flex:1; min-height:300px; border-radius:12px; overflow:hidden; border:1px solid var(--line); }
+  #mvInfo .mv-line { display:flex; align-items:center; font-size:14px; margin-bottom:6px; }
+  .mapwrap .pin { position:absolute; left:50%; top:50%; width:18px; height:18px; margin:-18px 0 0 -9px; z-index:3;
+                  background:var(--danger); border:3px solid #fff; border-radius:50% 50% 50% 0; transform:rotate(-45deg);
+                  box-shadow:0 1px 4px rgba(0,0,0,.4); pointer-events:none; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="dot" id="dot"></div>
+  <h1>중계기 리모컨</h1>
+  <button class="chip" id="reload">메뉴 새로고침</button>
+</header>
+<main>
+  <section class="card hidden" id="setup">
+    <div class="label">연결 설정 (이 기기에만 저장)</div>
+    <div class="field-label">ntfy 서버</div><input id="cfgServer" value="https://ntfy.sh">
+    <div class="field-label">명령 주제 (topic_in)</div><input id="cfgIn" autocomplete="off">
+    <div class="field-label">응답 주제 (topic_out)</div><input id="cfgOut" autocomplete="off">
+    <button class="btn" id="saveCfg">저장하고 연결</button>
+  </section>
+
+  <section class="card" id="appsCard">
+    <div class="label">앱</div>
+    <div class="chips" id="apps"><span class="help">PC 중계기에서 메뉴를 받는 중…</span></div>
+  </section>
+
+  <section class="card hidden" id="toolsCard">
+    <div class="label">요청</div>
+    <div class="chips" id="tools"></div>
+  </section>
+
+  <section class="card hidden" id="formCard">
+    <div class="label" id="formTitle"></div>
+    <div class="help" id="formHelp"></div>
+    <div id="fields"></div>
+    <p class="preview" id="preview"></p>
+    <button class="btn" id="run">실행</button>
+  </section>
+
+  <section class="card">
+    <div class="label">결과 · 알림</div>
+    <div id="log"><span class="help">아직 없음</span></div>
+  </section>
+
+  <div id="mapView" class="hidden">
+    <div class="mv-head"><b id="mvTitle">매물 위치</b><button class="chip" id="mvClose">닫기</button></div>
+    <div id="mvMap"></div>
+    <div id="mvInfo"></div>
+    <button class="btn danger" id="mvGrab">잡기</button>
+  </div>
+
+  <details class="card"><summary>연결 정보</summary>
+    <p class="help" id="connInfo"></p>
+    <button class="btn ghost" id="editCfg">연결 설정 바꾸기</button>
+  </details>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const CFG_KEY = "relay-remote-cfg";
+
+// 설정: URL 해시(#s=..&i=..&o=..) → localStorage. 해시는 서버로 전송되지 않음
+function loadCfg() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("i") && h.get("o")) {
+    const cfg = { server: h.get("s") || "https://ntfy.sh", topicIn: h.get("i"), topicOut: h.get("o") };
+    localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+    history.replaceState(null, "", location.pathname);   // 주소창에서 주제 이름 지우기
+    return cfg;
+  }
+  try { return JSON.parse(localStorage.getItem(CFG_KEY)); } catch { return null; }
+}
+let cfg = loadCfg();
+let catalog = null, curApp = null, curTool = null, es = null;
+const pending = {};   // id -> 로그 항목 요소
+
+function showSetup(show) {
+  $("setup").classList.toggle("hidden", !show);
+  if (cfg) { $("cfgServer").value = cfg.server; $("cfgIn").value = cfg.topicIn; $("cfgOut").value = cfg.topicOut; }
+}
+$("saveCfg").onclick = () => {
+  cfg = { server: $("cfgServer").value.trim().replace(/\/$/, ""), topicIn: $("cfgIn").value.trim(), topicOut: $("cfgOut").value.trim() };
+  if (!cfg.topicIn || !cfg.topicOut) return alert("주제 이름을 입력하세요");
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  showSetup(false); connect();
+};
+$("editCfg").onclick = () => showSetup(true);
+$("reload").onclick = () => requestCatalog();
+
+function setDot(state) { $("dot").className = "dot " + (state || ""); }
+
+// ---- 통신
+function connect() {
+  if (es) es.close();
+  $("connInfo").textContent = `${cfg.server} · 보내기 ${cfg.topicIn.slice(0, 14)}… · 받기 ${cfg.topicOut.slice(0, 14)}…`;
+  es = new EventSource(`${cfg.server}/${encodeURIComponent(cfg.topicOut)}/sse`);
+  es.onopen = () => { setDot("on"); requestCatalog(); };
+  es.onerror = () => setDot("err");
+  es.onmessage = ev => {
+    let outer, msg;
+    try { outer = JSON.parse(ev.data); msg = JSON.parse(outer.message); } catch { return; }
+    handleMsg(msg);
+  };
+}
+
+function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+async function send(cmd, { silent = false } = {}) {
+  const id = newId();
+  if (!silent) pending[id] = addLog({ kind: "req", cmd });
+  else pending[id] = null;
+  try {
+    const r = await fetch(`${cfg.server}/${encodeURIComponent(cfg.topicIn)}`, { method: "POST", body: JSON.stringify({ id, cmd }) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+  } catch (e) {
+    if (pending[id]) setState(pending[id], "err", "전송 실패: " + e.message);
+    return;
+  }
+  setTimeout(() => {
+    const el = pending[id];
+    if (el && el.dataset.state === "wait") setState(el, "err", "PC 응답 없음 (중계기가 꺼져 있나요?)");
+  }, 10000);
+}
+
+function requestCatalog() { send("__catalog", { silent: true }); }
+
+function handleMsg(msg) {
+  if (msg.type === "ack") {
+    const el = pending[msg.id];
+    if (el) setState(el, "run", "PC 실행 중…");
+    return;
+  }
+  if (msg.type === "reply" && msg.data && msg.data.apps) {   // 메뉴
+    catalog = msg.data.apps; renderApps(); delete pending[msg.id]; return;
+  }
+  if (msg.type === "reply" && msg.id && msg.id in pending) {
+    const el = pending[msg.id]; delete pending[msg.id];
+    if (el) { setState(el, "ok", "완료"); fillResult(el, msg); }
+    return;
+  }
+  // 감시 알림 등
+  const el = addLog({ kind: "event", cmd: msg.type === "event" ? "알림" : "메시지" });
+  setState(el, "ok", new Date().toLocaleTimeString("ko-KR"));
+  fillResult(el, msg);
+  if (navigator.vibrate) navigator.vibrate(200);
+}
+
+// ---- 화면
+function renderApps() {
+  $("apps").innerHTML = "";
+  catalog.forEach(app => {
+    const b = document.createElement("button");
+    b.className = "chip" + (curApp && curApp.name === app.name ? " sel" : "");
+    b.textContent = app.aliases[0] || app.name;
+    b.title = app.description;
+    b.onclick = () => { curApp = app; curTool = null; renderApps(); renderTools(); renderForm(); };
+    $("apps").appendChild(b);
+  });
+  if (!curApp && catalog.length === 1) { curApp = catalog[0]; renderApps(); }
+  if (curApp) { curApp = catalog.find(a => a.name === curApp.name) || null; renderTools(); }
+}
+
+function renderTools() {
+  $("toolsCard").classList.toggle("hidden", !curApp);
+  if (!curApp) return;
+  $("tools").innerHTML = "";
+  curApp.tools.forEach(t => {
+    const b = document.createElement("button");
+    b.className = "chip" + (t.danger ? " danger" : "") + (curTool && curTool.name === t.name ? " sel" : "");
+    b.textContent = t.name;
+    b.onclick = () => { curTool = t; renderTools(); renderForm(); };
+    $("tools").appendChild(b);
+  });
+}
+
+function renderForm() {
+  $("formCard").classList.toggle("hidden", !curTool);
+  if (!curTool) return;
+  $("formTitle").textContent = `${curApp.aliases[0] || curApp.name} · ${curTool.name}`;
+  $("formHelp").textContent = curTool.help;
+  $("fields").innerHTML = "";
+  fieldGetters = [];
+  formWidgets = [];
+  const ps = curTool.params;
+  if (ps.length) renderPresets();
+  for (let i = 0; i < ps.length; i++) {
+    const p = ps[i];
+    const wrap = document.createElement("div");
+    $("fields").appendChild(wrap);
+    if (p.type === "point_km" && ps[i + 1] && ps[i + 1].type === "point_km") {
+      // 출발·도착 두 칸을 지도 하나로 (핀 두 개)
+      wrap.innerHTML = `<div class="field-label">${esc(p.label)} · ${esc(ps[i + 1].label)}</div>`;
+      fieldGetters.push(...makeRouteField(wrap, p, ps[i + 1]));
+      i++;
+      continue;
+    }
+    wrap.innerHTML = `<div class="field-label">${esc(p.label)}${p.optional ? " (선택)" : ""}</div>`;
+    if (p.type === "point" || p.type === "point_km") { fieldGetters.push(makeMapField(wrap, p)); continue; }
+    if (p.type === "time_range") { fieldGetters.push(makeTimeField(wrap, p)); continue; }
+    if (p.type === "dates") { fieldGetters.push(makeDatesField(wrap, p)); continue; }
+    const inp = document.createElement("input");
+    inp.placeholder = p.hint;
+    inp.oninput = updatePreview;
+    wrap.appendChild(inp);
+    fieldGetters.push(() => inp.value.trim());
+    formWidgets.push({ save: () => inp.value, load: v => { inp.value = v || ""; } });
+  }
+  $("run").className = "btn" + (curTool.danger ? " danger" : "");
+  updatePreview();
+}
+
+// ---- 카카오 지도 선택기 (등록된 도메인 https://bkchopa.github.io 에서만 동작)
+const KM_MAX = 20;   // 반경 슬라이더 최대 (km), 0.5km 단위
+const fmtKm = v => { const n = parseFloat(v) || 0; return n < 1 ? `${Math.round(n * 1000)}m` : `${n.toFixed(1)}km`; };
+const KAKAO_JS_KEY = "7ebf8e0d7a83c15403f3148cef7898fe";
+const DEFAULT_CENTER = [37.566536, 126.977966];   // 서울시청
+let fieldGetters = [], formWidgets = [], kakaoReady = null;
+// formWidgets: 입력 묶음마다 { save(): 상태, load(상태) } — 즐겨찾기 저장/불러오기에 사용 (날짜는 저장 안 함)
+
+// ---- 즐겨찾기 (이 휴대폰에만 저장)
+const PRESET_KEY = "relay-presets";
+const presetKey = () => `${curApp.name} ${curTool.name}`;
+const loadPresets = () => JSON.parse(localStorage.getItem(PRESET_KEY) || "{}");
+function renderPresets() {
+  const box = document.createElement("div");
+  box.className = "presets";
+  box.innerHTML = `<div class="field-label">즐겨찾기</div><div class="chips plist"></div>
+    <button class="chip small psave">＋ 지금 설정 저장</button>`;
+  $("fields").appendChild(box);
+  const list = box.querySelector(".plist");
+  const draw = () => {
+    const items = loadPresets()[presetKey()] || [];
+    list.innerHTML = items.length ? "" : `<span class="help">저장된 즐겨찾기 없음</span>`;
+    items.forEach((it, idx) => {
+      const chip = document.createElement("span");
+      chip.className = "chip preset";
+      chip.innerHTML = `<span class="pname">${esc(it.name)}</span><span class="pdel" title="삭제">×</span>`;
+      chip.querySelector(".pname").onclick = () => {
+        if (it.data.length !== formWidgets.length) return alert("입력칸 구성이 바뀌어 불러올 수 없습니다. 다시 저장해 주세요.");
+        formWidgets.forEach((w, i) => w.load(it.data[i]));
+        updatePreview();
+      };
+      chip.querySelector(".pdel").onclick = () => {
+        if (!confirm(`'${it.name}' 즐겨찾기를 지울까요?`)) return;
+        const all = loadPresets(); all[presetKey()].splice(idx, 1);
+        localStorage.setItem(PRESET_KEY, JSON.stringify(all)); draw();
+      };
+      list.appendChild(chip);
+    });
+  };
+  box.querySelector(".psave").onclick = () => {
+    const name = (prompt("즐겨찾기 이름 (예: 퇴근길 분당→마포)") || "").trim();
+    if (!name) return;
+    const all = loadPresets(), items = all[presetKey()] || [];
+    const data = formWidgets.map(w => w.save());
+    const i = items.findIndex(x => x.name === name);
+    if (i >= 0) items[i].data = data; else items.push({ name, data });
+    all[presetKey()] = items;
+    localStorage.setItem(PRESET_KEY, JSON.stringify(all)); draw();
+  };
+  draw();
+}
+
+// ---- 출발 날짜: 오늘부터 7일, 여러 개 선택 가능. 아무것도 안 고르면 날짜 무관('*')
+function makeDatesField(wrap, p) {
+  const WD = "일월화수목금토";
+  const days = [...Array(7)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
+  const key = d => `${d.getMonth() + 1}-${d.getDate()}`;
+  const box = document.createElement("div");
+  box.className = "datefield";
+  box.innerHTML = `<div class="chips">${days.map((d, i) =>
+      `<button class="chip small dchip" data-k="${key(d)}">${i === 0 ? "오늘 " : i === 1 ? "내일 " : ""}${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})</button>`).join("")}</div>
+    <div class="help dnote"></div>`;
+  wrap.appendChild(box);
+  const chips = [...box.querySelectorAll(".dchip")];
+  const refresh = () => {
+    const sel = chips.filter(c => c.classList.contains("sel"));
+    box.querySelector(".dnote").textContent = sel.length
+      ? `${sel.map(c => c.textContent).join(", ")} 에 출발하는 핸들만` : "선택 안 하면 날짜 상관없음";
+    updatePreview();
+  };
+  chips.forEach(c => c.onclick = () => { c.classList.toggle("sel"); refresh(); });
+  refresh();
+  formWidgets.push({ save: () => null, load: () => {} });   // 날짜는 즐겨찾기에 넣지 않음
+  return () => { const sel = chips.filter(c => c.classList.contains("sel")).map(c => c.dataset.k); return sel.length ? sel.join(",") : "*"; };
+}
+
+function loadKakao() {
+  if (kakaoReady) return kakaoReady;
+  kakaoReady = new Promise((ok, fail) => {
+    const s = document.createElement("script");
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
+    s.onload = () => window.kakao ? kakao.maps.load(ok) : fail(new Error("SDK 없음"));
+    s.onerror = () => fail(new Error("SDK 로드 실패"));
+    document.head.appendChild(s);
+  });
+  kakaoReady.catch(() => { kakaoReady = null; });
+  return kakaoReady;
+}
+
+function makeMapField(wrap, p) {
+  const withKm = p.type === "point_km";
+  const kmDefault = (String(p.hint).match(/(\d+(?:\.\d+)?)\s*km/i) || [, "3"])[1];
+  const box = document.createElement("div");
+  box.className = "mapfield";
+  box.innerHTML = `
+    <label class="toggle"><input type="checkbox" class="off"> ${withKm ? "상관없음 (*)" : "지도 안 씀 (현재 위치만 보기)"}</label>
+    <div class="mapbody">
+      <div class="row"><input class="q" placeholder="장소 검색 (예: ${esc(String(p.hint).replace(/\s*\d+(\.\d+)?\s*km/i, ""))})"><button class="chip sbtn">검색</button></div>
+      <div class="results"></div>
+      <div class="mapwrap"><div class="map"></div><div class="pin"></div></div>
+      ${withKm ? `<div class="row"><span>반경</span><input class="km" type="range" min="0.5" max="${KM_MAX}" step="0.5" value="${kmDefault}"><b class="kmval"></b></div>` : ""}
+      <div class="coord help">지도를 움직이거나 눌러서 가운데 핀을 맞추세요</div>
+    </div>`;
+  wrap.appendChild(box);
+  const off = box.querySelector(".off"), body = box.querySelector(".mapbody");
+  const coordEl = box.querySelector(".coord"), kmEl = box.querySelector(".km");
+  if (p.optional && !withKm) off.checked = false;
+  let map = null, circle = null, center = null;
+
+  const saved = JSON.parse(localStorage.getItem("relay-map-center") || "null") || DEFAULT_CENTER;
+  center = saved;
+
+  function refresh() {
+    body.classList.toggle("hidden", off.checked);
+    if (kmEl) box.querySelector(".kmval").textContent = fmtKm(kmEl.value);
+    if (map && circle) circle.setOptions({ center: map.getCenter(), radius: (parseFloat(kmEl.value) || 0) * 1000 });
+    coordEl.textContent = center ? `선택: ${center[0].toFixed(5)}, ${center[1].toFixed(5)}` : "";
+    updatePreview();
+  }
+  off.onchange = refresh;
+  if (kmEl) kmEl.oninput = refresh;
+
+  loadKakao().then(() => {
+    const ll = new kakao.maps.LatLng(center[0], center[1]);
+    map = new kakao.maps.Map(box.querySelector(".map"), { center: ll, level: withKm ? 8 : 6 });
+    if (withKm) circle = new kakao.maps.Circle({ center: ll, radius: 0, strokeWeight: 2, strokeColor: "#2563eb",
+                                                 strokeOpacity: .9, fillColor: "#2563eb", fillOpacity: .12, map });
+    kakao.maps.event.addListener(map, "center_changed", () => {
+      const c = map.getCenter(); center = [c.getLat(), c.getLng()];
+      localStorage.setItem("relay-map-center", JSON.stringify(center));
+      refresh();
+    });
+    kakao.maps.event.addListener(map, "click", e => map.panTo(e.latLng));
+    const doSearch = () => {
+      const q = box.querySelector(".q").value.trim();
+      if (!q) return;
+      searchPlace(q, list => {
+        const res = box.querySelector(".results");
+        if (!list.length) { res.innerHTML = `<span class="help">검색 결과 없음</span>`; return; }
+        res.innerHTML = "";
+        list.forEach((d, i) => {
+          const b = document.createElement("button");
+          b.className = "chip small"; b.textContent = d.name;
+          b.onclick = () => map.setCenter(new kakao.maps.LatLng(d.lat, d.lon));
+          res.appendChild(b);
+          if (i === 0) map.setCenter(new kakao.maps.LatLng(d.lat, d.lon));
+        });
+      });
+    };
+    box.querySelector(".sbtn").onclick = doSearch;
+    box.querySelector(".q").onkeydown = e => { if (e.key === "Enter") doSearch(); };
+    refresh();
+  }).catch(err => {
+    box.querySelector(".mapwrap").innerHTML =
+      `<p class="help">카카오 지도를 불러오지 못했습니다 (${esc(err.message)}). 카카오디벨로퍼스의 사이트 도메인 등록을 확인하세요. 아래에 직접 입력해도 됩니다.</p>
+       <input class="manual" placeholder="${withKm ? "37.38497,127.12336 5km" : "37.38497,127.12336"}">`;
+    box.querySelector(".manual").oninput = updatePreview;
+  });
+  refresh();
+
+  formWidgets.push({
+    save: () => ({ center, off: off.checked, km: kmEl ? kmEl.value : null }),
+    load: st => {
+      if (!st) return;
+      off.checked = !!st.off;
+      if (kmEl && st.km) kmEl.value = st.km;
+      if (st.center) { center = st.center; if (map) map.setCenter(LL(center)); }
+      refresh();
+    },
+  });
+
+  return () => {
+    if (off.checked) return withKm ? "*" : "";
+    const manual = box.querySelector(".manual");
+    if (manual) return manual.value.trim();
+    if (!center) return "";
+    const pt = `${center[0].toFixed(5)},${center[1].toFixed(5)}`;
+    return withKm ? `${pt} ${parseFloat(kmEl.value) || 1}km` : pt;
+  };
+}
+
+
+// 주소(지번/도로명)면 주소 검색, 아니면 장소 검색. 결과: [{name, lat, lon}]
+function searchPlace(text, cb) {
+  const geocoder = new kakao.maps.services.Geocoder(), places = new kakao.maps.services.Places();
+  geocoder.addressSearch(text, (data, status) => {
+    if (status === kakao.maps.services.Status.OK && data.length)
+      return cb(data.slice(0, 5).map(d => ({ name: d.address_name, lat: +d.y, lon: +d.x })));
+    places.keywordSearch(text, (d2, st2) => cb(st2 === kakao.maps.services.Status.OK
+      ? d2.slice(0, 5).map(d => ({ name: d.place_name, lat: +d.y, lon: +d.x })) : []));
+  });
+}
+
+// 시간 범위: 30분 단위 선택 상자 두 개 (시작 ~ 끝). '상관없음'이면 '*'
+function makeTimeField(wrap, p) {
+  const opts = [];
+  for (let m = 0; m < 24 * 60; m += 30) opts.push(`${String(m / 60 | 0).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  const [defA, defB] = (String(p.hint).match(/(\d{2}:\d{2})-(\d{2}:\d{2})/) || [, "08:00", "10:00"]).slice(1);
+  const saved = JSON.parse(localStorage.getItem("relay-time") || "null") || { a: defA, b: defB, any: false };
+  const select = (cls, val) => `<select class="${cls}">${opts.map(o => `<option${o === val ? " selected" : ""}>${o}</option>`).join("")}</select>`;
+  const box = document.createElement("div");
+  box.className = "timefield";
+  box.innerHTML = `<div class="row">${select("ta", saved.a)}<span>~</span>${select("tb", saved.b)}
+      <label class="toggle"><input type="checkbox" class="tany"${saved.any ? " checked" : ""}> 상관없음</label></div>
+    <div class="help tnote"></div>`;
+  wrap.appendChild(box);
+  const a = box.querySelector(".ta"), b = box.querySelector(".tb"), any = box.querySelector(".tany");
+  const refresh = () => {
+    a.disabled = b.disabled = any.checked;
+    box.querySelector(".tnote").textContent = any.checked ? "출발 시간 상관없음"
+      : a.value > b.value ? `밤 ${a.value}부터 다음날 ${b.value}까지 (자정 넘김)` : `${a.value}~${b.value} 사이에 출발하는 핸들`;
+    localStorage.setItem("relay-time", JSON.stringify({ a: a.value, b: b.value, any: any.checked }));
+    updatePreview();
+  };
+  a.onchange = b.onchange = any.onchange = refresh;
+  refresh();
+  formWidgets.push({
+    save: () => ({ a: a.value, b: b.value, any: any.checked }),
+    load: s => { if (!s) return; a.value = s.a; b.value = s.b; any.checked = !!s.any; refresh(); },
+  });
+  return () => any.checked ? "*" : `${a.value}-${b.value}`;
+}
+
+// 말풍선 모양 핀 (출발/도착 글자)
+const PIN_COLORS = { from: "#0ea5e9", to: "#2563eb" };
+const PIN_LABELS = { from: "출발", to: "도착" };
+function pinImage(side) {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='52' height='60' viewBox='0 0 52 60'>
+    <path d='M26 58 L17 41 H9 a7 7 0 0 1 -7 -7 V9 a7 7 0 0 1 7 -7 H43 a7 7 0 0 1 7 7 V34 a7 7 0 0 1 -7 7 H35 Z'
+      fill='${PIN_COLORS[side]}' stroke='white' stroke-width='2.5'/>
+    <text x='26' y='27' font-size='15' font-weight='700' text-anchor='middle' fill='white'
+      font-family='Noto Sans KR, sans-serif'>${PIN_LABELS[side]}</text></svg>`;
+  return new kakao.maps.MarkerImage("data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg),
+    new kakao.maps.Size(52, 60), { offset: new kakao.maps.Point(26, 58) });
+}
+const LL = p => new kakao.maps.LatLng(p[0], p[1]);
+function fitTo(map, pts) {
+  const b = new kakao.maps.LatLngBounds();
+  pts.forEach(p => b.extend(LL(p)));
+  map.setBounds(b, 60, 40, 40, 40);
+}
+
+// 감시: 지도 하나에 출발·도착 핀 + 반경 원
+function makeRouteField(wrap, pFrom, pTo) {
+  const kmOf = p => (String(p.hint).match(/(\d+(?:\.\d+)?)\s*km/i) || [, "3"])[1];
+  const saved = JSON.parse(localStorage.getItem("relay-route") || "null");
+  const pts = saved || { from: DEFAULT_CENTER, to: [DEFAULT_CENTER[0] - 0.03, DEFAULT_CENTER[1] - 0.05] };
+  let active = "from", map = null;
+  const marks = {}, circles = {};
+  const box = document.createElement("div");
+  box.className = "mapfield";
+  box.innerHTML = `
+    <div class="seg"><button data-t="from" class="sel">출발 정하기</button><button data-t="to">도착 정하기</button></div>
+    <div class="row"><input class="q" placeholder="출발지 검색 (예: 서현역)"><button class="chip sbtn">검색</button></div>
+    <div class="results"></div>
+    <div class="mapwrap tall"><div class="map"></div></div>
+    <p class="help">검색하거나, 지도를 눌러서 ${"<b>선택한 핀</b>"}을 옮기세요. 핀을 길게 눌러 끌어도 됩니다.</p>
+    ${["from", "to"].map(s => `
+      <div class="row side-${s}">
+        <span class="dotlabel" style="background:${PIN_COLORS[s]}">${PIN_LABELS[s]}</span>
+        <input class="km" data-s="${s}" type="range" min="0.5" max="${KM_MAX}" step="0.5" value="${kmOf(s === "from" ? pFrom : pTo)}">
+        <b class="kmval" data-s="${s}"></b>
+        <label class="toggle"><input type="checkbox" class="off" data-s="${s}"> 상관없음</label>
+      </div>
+      <div class="coord help" data-s="${s}"></div>`).join("")}`;
+  wrap.appendChild(box);
+  const q = box.querySelector(".q");
+  const kmEl = s => box.querySelector(`.km[data-s=${s}]`);
+  const offEl = s => box.querySelector(`.off[data-s=${s}]`);
+
+  function setActive(s) {
+    active = s;
+    box.querySelectorAll(".seg button").forEach(b => b.classList.toggle("sel", b.dataset.t === s));
+    q.placeholder = `${PIN_LABELS[s]}지 검색 (예: ${s === "from" ? "서현역" : "마포대로 197-3"})`;
+    box.querySelector(".results").innerHTML = "";
+  }
+  function refresh() {
+    ["from", "to"].forEach(s => {
+      const off = offEl(s).checked;
+      box.querySelector(`.kmval[data-s=${s}]`).textContent = fmtKm(kmEl(s).value);
+      kmEl(s).disabled = off;
+      box.querySelector(`.coord[data-s=${s}]`).textContent =
+        off ? `${PIN_LABELS[s]}: 상관없음` : `${PIN_LABELS[s]}: ${pts[s][0].toFixed(5)}, ${pts[s][1].toFixed(5)}`;
+      if (map) {
+        marks[s].setMap(off ? null : map);
+        circles[s].setMap(off ? null : map);
+        circles[s].setOptions({ center: LL(pts[s]), radius: (parseFloat(kmEl(s).value) || 0) * 1000 });
+      }
+    });
+    localStorage.setItem("relay-route", JSON.stringify(pts));
+    updatePreview();
+  }
+  function moveTo(s, ll, pan) {
+    pts[s] = [ll.getLat(), ll.getLng()];
+    if (marks[s]) marks[s].setPosition(ll);
+    if (pan && map) map.panTo(ll);
+    refresh();
+  }
+  box.querySelectorAll(".seg button").forEach(b => b.onclick = () => {
+    const s = b.dataset.t;
+    setActive(s);
+    if (map && !offEl(s).checked) map.panTo(LL(pts[s]));   // 고른 쪽 핀으로 지도 이동
+  });
+  box.querySelectorAll(".km, .off").forEach(el => (el.oninput = el.onchange = refresh));
+
+  loadKakao().then(() => {
+    map = new kakao.maps.Map(box.querySelector(".map"), { center: LL(pts.from), level: 8 });
+    ["from", "to"].forEach(s => {
+      circles[s] = new kakao.maps.Circle({ center: LL(pts[s]), radius: 0, strokeWeight: 2, strokeColor: PIN_COLORS[s],
+                                           strokeOpacity: .9, fillColor: PIN_COLORS[s], fillOpacity: .1, map });
+      marks[s] = new kakao.maps.Marker({ position: LL(pts[s]), image: pinImage(s), draggable: true, map, zIndex: 3 });
+      kakao.maps.event.addListener(marks[s], "dragstart", () => setActive(s));
+      kakao.maps.event.addListener(marks[s], "dragend", () => moveTo(s, marks[s].getPosition(), false));
+      kakao.maps.event.addListener(marks[s], "click", () => setActive(s));
+    });
+    kakao.maps.event.addListener(map, "click", e => moveTo(active, e.latLng, false));
+    fitTo(map, [pts.from, pts.to]);
+    const showBoth = () => {
+      const on = ["from", "to"].filter(s => !offEl(s).checked).map(s => pts[s]);
+      if (on.length) fitTo(map, on);
+    };
+    const doSearch = () => {
+      const text = q.value.trim();
+      if (!text) return;
+      const target = active;
+      searchPlace(text, list => {
+        const res = box.querySelector(".results");
+        if (!list.length) { res.innerHTML = `<span class="help">검색 결과 없음</span>`; return; }
+        res.innerHTML = "";
+        list.forEach((d, i) => {
+          const b = document.createElement("button");
+          b.className = "chip small"; b.textContent = d.name;
+          b.onclick = () => { moveTo(target, new kakao.maps.LatLng(d.lat, d.lon), false); showBoth(); };
+          res.appendChild(b);
+          if (i === 0) { moveTo(target, new kakao.maps.LatLng(d.lat, d.lon), false); showBoth(); }
+        });
+      });
+    };
+    box.querySelector(".sbtn").onclick = doSearch;
+    q.onkeydown = e => { if (e.key === "Enter") doSearch(); };
+    refresh();
+  }).catch(err => {
+    box.querySelector(".mapwrap").outerHTML = `<p class="help">카카오 지도를 불러오지 못했습니다 (${esc(err.message)}). 아래에 직접 입력하세요.</p>
+      <input class="manual" data-s="from" placeholder="출발: 서현역 5km"><input class="manual" data-s="to" placeholder="도착: 마포대로 197-3 2km">`;
+    box.querySelectorAll(".manual").forEach(m => m.oninput = updatePreview);
+  });
+  refresh();
+
+  formWidgets.push({
+    save: () => ({ pts: { from: pts.from, to: pts.to },
+                   km: { from: kmEl("from").value, to: kmEl("to").value },
+                   off: { from: offEl("from").checked, to: offEl("to").checked } }),
+    load: st => {
+      if (!st) return;
+      ["from", "to"].forEach(s => {
+        pts[s] = st.pts[s];
+        kmEl(s).value = st.km[s];
+        offEl(s).checked = !!st.off[s];
+        if (marks[s]) marks[s].setPosition(LL(pts[s]));
+      });
+      refresh();
+      if (map) { const on = ["from", "to"].filter(s => !offEl(s).checked).map(s => pts[s]); if (on.length) fitTo(map, on); }
+    },
+  });
+  const getter = s => () => {
+    const manual = box.querySelector(`.manual[data-s=${s}]`);
+    if (manual) return manual.value.trim() || "*";
+    if (offEl(s).checked) return "*";
+    return `${pts[s][0].toFixed(5)},${pts[s][1].toFixed(5)} ${parseFloat(kmEl(s).value) || 1}km`;
+  };
+  return [getter("from"), getter("to")];
+}
+
+// 항목 지도 보기: 출발·도착을 한 화면에
+let viewMap = null, viewOverlays = [];
+function showJobMap(j, app) {
+  $("mapView").classList.remove("hidden");
+  $("mvTitle").textContent = `#${j.n} 매물 위치`;
+  const dist = j.from_pt && j.to_pt ? haversine(j.from_pt, j.to_pt).toFixed(1) + "km (직선)" : "";
+  $("mvInfo").innerHTML = `
+    <div class="mv-line"><span class="dotlabel" style="background:${PIN_COLORS.from}">출발</span>${esc(j.from_pt ? j.from_pt[2] : "좌표 없음")}</div>
+    <div class="mv-line"><span class="dotlabel" style="background:${PIN_COLORS.to}">도착</span>${esc(j.to_pt ? j.to_pt[2] : "좌표 없음")}</div>
+    <div class="help">${esc(j.job || "")}${dist ? " · 거리 " + dist : ""}</div>`;
+  const ready = j.ready !== undefined ? j.ready : canGrab(j);
+  $("mvGrab").disabled = !ready;
+  $("mvGrab").textContent = ready ? "잡기" : "아직 잡을 수 없음 (시간 전)";
+  $("mvGrab").onclick = () => {
+    const cmd = `${app} 잡기 ${j.n}`;
+    if (confirm(`실행할까요?\n\n${cmd}\n${j.job || ""}`)) { send(cmd); closeJobMap(); }
+  };
+  loadKakao().then(() => {
+    const pts = [j.from_pt, j.to_pt].filter(Boolean);
+    if (!viewMap) viewMap = new kakao.maps.Map($("mvMap"), { center: LL(pts[0] || DEFAULT_CENTER), level: 7 });
+    viewMap.relayout();
+    viewOverlays.forEach(o => o.setMap(null)); viewOverlays = [];
+    if (j.from_pt) viewOverlays.push(new kakao.maps.Marker({ position: LL(j.from_pt), image: pinImage("from"), map: viewMap }));
+    if (j.to_pt) viewOverlays.push(new kakao.maps.Marker({ position: LL(j.to_pt), image: pinImage("to"), map: viewMap }));
+    if (j.from_pt && j.to_pt) viewOverlays.push(new kakao.maps.Polyline({ path: [LL(j.from_pt), LL(j.to_pt)], strokeWeight: 3,
+                                     strokeColor: "#2563eb", strokeOpacity: .7, strokeStyle: "dash", map: viewMap }));
+    if (pts.length) fitTo(viewMap, pts);
+  }).catch(err => { $("mvMap").innerHTML = `<p class="help">지도를 불러오지 못했습니다 (${esc(err.message)})</p>`; });
+}
+// 지금 바로 실행할 수 있는지: 중계기가 보내 준 grab 값 (없으면 가능으로 봄)
+function canGrab(j) {
+  return j.grab !== false;
+}
+function closeJobMap() { $("mapView").classList.add("hidden"); }
+function haversine(a, b) {
+  const r = x => x * Math.PI / 180, dLa = r(b[0] - a[0]), dLo = r(b[1] - a[1]);
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(r(a[0])) * Math.cos(r(b[0])) * Math.sin(dLo / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
+
+function buildCmd() {
+  const vals = fieldGetters.map(g => g());
+  while (vals.length && !vals[vals.length - 1] && curTool.params[vals.length - 1].optional) vals.pop();
+  const missing = curTool.params.findIndex((p, i) => !p.optional && !vals[i]);
+  const args = vals.join(curTool.sep);
+  return { cmd: `${curApp.name} ${curTool.name}${args ? " " + args : ""}`, missing };
+}
+
+function updatePreview() { $("preview").textContent = buildCmd().cmd; }
+
+$("run").onclick = () => {
+  const { cmd, missing } = buildCmd();
+  if (missing >= 0) return alert(`'${curTool.params[missing].label}'을(를) 입력하세요`);
+  if (curTool.danger && !confirm(`실행할까요?\n\n${cmd}`)) return;
+  send(cmd);
+};
+
+function addLog({ kind, cmd }) {
+  if ($("log").querySelector(".help")) $("log").innerHTML = "";
+  const el = document.createElement("div");
+  el.className = "log-item" + (kind === "event" ? " event" : "");
+  el.innerHTML = `<div class="log-head"><span>${new Date().toLocaleTimeString("ko-KR")}</span><span class="state wait">전송함</span></div>
+                  <div class="log-cmd">${esc(cmd)}</div><div class="body"></div>`;
+  el.dataset.state = "wait";
+  $("log").prepend(el);
+  return el;
+}
+
+function setState(el, state, text) {
+  el.dataset.state = state;
+  const s = el.querySelector(".state");
+  s.className = "state " + (state === "run" ? "wait" : state);
+  s.textContent = text;
+}
+
+function fillResult(el, msg) {
+  const body = el.querySelector(".body");
+  const d = msg.data || {};
+  // 목록 응답은 첫 줄(요약)만 글로 보여주고 항목은 아래 버튼 줄로 표시
+  body.innerHTML = `<pre>${esc(d.jobs ? msg.text.split("\n")[0] : msg.text)}</pre>`;
+  const jobs = d.jobs || (d.n !== undefined && d.n !== "" ? [{ n: d.n, job: d.job || "", from_pt: d.from_pt, to_pt: d.to_pt, grab: d.grab }] : []);
+  if (!jobs.length) return;
+  const app = d.app || (curApp && curApp.name) || "";
+  const box = document.createElement("div");
+  box.className = "jobs";
+  jobs.forEach(j => {
+    const row = document.createElement("div");
+    row.className = "job";
+    const hasMap = j.from_pt || j.to_pt;
+    j.ready = canGrab(j);
+    row.innerHTML = `<span><b>#${j.n}</b> ${esc(j.job)}</span>${hasMap ? `<button class="mapbtn">지도</button>` : ""}` +
+      (j.ready ? `<button class="grab">잡기</button>` : `<span class="waitlabel" title="아직 실행할 수 없는 항목">대기</span>`);
+    if (hasMap) row.querySelector(".mapbtn").onclick = () => showJobMap(j, app);
+    if (j.ready) row.querySelector(".grab").onclick = () => {
+      const cmd = `${app} 잡기 ${j.n}`;
+      if (confirm(`실행할까요?\n\n${cmd}\n${j.job}`)) send(cmd);
+    };
+    box.appendChild(row);
+  });
+  body.appendChild(box);
+}
+
+$("mvClose").onclick = closeJobMap;
+if (cfg) connect(); else showSetup(true);
+
+// 알림에서 바로 항목 지도 열기: …/#job={"n","app","job","f":[위도,경도,주소],"t":[…],"g":실행가능}
+(function openJobFromLink() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  const raw = h.get("job");
+  if (!raw) return;
+  history.replaceState(null, "", location.pathname);
+  try {
+    const o = JSON.parse(raw);
+    showJobMap({ n: o.n, job: o.job, from_pt: o.f, to_pt: o.t, grab: o.g }, o.app || (catalog && catalog[0] ? catalog[0].name : ""));
+  } catch (e) { console.warn("job 링크 해석 실패", e); }
+})();
+</script>
+</body>
+</html>
